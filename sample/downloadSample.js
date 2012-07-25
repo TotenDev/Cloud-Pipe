@@ -1,3 +1,10 @@
+//
+// downloadSamples.js — Cloud Pipe
+// today is 7/24/12, it is now 21:22 PM
+// created by TotenDev
+// see LICENSE for details.
+//
+
 var maxChunkSize = 10000000; //10 mb
 var cp = require("./../src/cloud-pipe.js")("my bucket name","myAccessKey","mySecret","file.zip",maxChunkSize);
 res = null; //request container

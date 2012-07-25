@@ -34,7 +34,7 @@ Download and install dependencies
 	//Must be registered in order to CloudPipe get ready
 	cp.on("cp-ready",function () {
 		var chunk = "OMG"
-        if (!cp.write(new Buffer(chunk))) { /*wait until cp-drained event, and write again there*/ }
+        if (!cp.write(new Buffer(chunk,'binary'))) { /*wait until cp-drained event, and write again there*/ }
 	    else { cp.finish(); }
 	});
 
@@ -42,7 +42,51 @@ More samples at `samples/` directory.
 
 ## Methods
 
-to be..
+#### Initialize Wrapper
+
+Parameters:
+
+* bucketID - **Type:**string - **Description:**Name of Object in S3 bucket   - **REQUIRED**
+* AWSAccessKeyID - **Type:**string - **Description:**AWS AccessKeyID - **REQUIRED**
+* AWSSecretAccessKey - **Type:**string - **Description:**AWS SecretAccessKey - **REQUIRED**
+* fileName - **Type:**string - **Description:**fileName to be on S3 - **REQUIRED**
+* chunkSize - **Type:**integer - **Description:**Chunk in bytes to be on S3 (Got be 5MB or bigger) - **REQUIRED**
+* options - **Type:**OptionObject - **Description:**Options Object - **OPTIONAL**
+* options.endPoint - **Type:**string - **Description:**End point to be used, default `s3.amazonaws.com` - **OPTIONAL**
+* options.useSSL - **Type:**boolean - **Description:**Use SSL or not, default is true - **OPTIONAL**
+* options.maxRetry - **Type:**integer - **Description:**Max upload retry, 0 will disable retries. Default is 3 - **OPTIONAL**
+
+Sample:
+
+    var CloudPipe = require("cloud-pipe")("myBucket","AWSAccessKey","AWSSecretAccessKey","fileNameToBeUp",10000000,{ endPoint:"secondary.s3.com",useSSL:false,maxRetry:1 });
+---
+#### Write Chunk
+
+This function will not call error listener, it'll return false if cannot write chunk size.  
+After it'll fire `cp-drained` event when can write again.
+
+Parameters:
+- chunkData - **Type:**Buffer - **Description:**Chunk to be on buffer and after uploaded to S3. (Got be `Buffer` object encoded as `binary`) - **REQUIRED**
+
+Sample:
+
+    CloudPipe.write(new Buffer('OMG This is my chunk','binary'));
+---
+#### Finish Upload
+This method will finish upload and upload what remains on `Buffer`. It can take a bit long for large files, since amazon will only answer the request when all parts are joined.
+
+Sample:
+
+    CloudPipe.finish();
+
+---
+#### Abort Upload
+This method will cancel upload, and delete all uploaded chunks.
+
+Sample:
+
+    CloudPipe.abort();
+
 
 ## Events
 
@@ -68,7 +112,7 @@ Sample:
 
     cp.on("cp-drained",function () {
 		console.log("resuming cpipe write");
-		cp.write(new Buffer("resume data"));
+		cp.write(new Buffer("resume data",'binary'));
 	});
 ---
 ####Error

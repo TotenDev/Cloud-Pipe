@@ -10,11 +10,6 @@ var util = require ('util'),
 	assert = require('assert'),
 	EventEmitter = require('events').EventEmitter;
 	
-//Make optional initialization object
-	//max retry by upload chunk
-	//same options as JSss initialization API
-	//compression thread
-	
 canRetry = true ;
 	
 /**
@@ -25,9 +20,13 @@ canRetry = true ;
 * @param string AWSSecretAccessKey - AWS SecretAccessKey - REQUIRED
 * @param string fileName - fileName to be on S3          - REQUIRED
 * @param string chunkSize - chunk size in bytes (got be bigger than 5mb otherwise, we use 5mb) - REQUIRED
+* @param Object options - options object - OPTIONAL
+* @param string options.endPoint - End point to be used, default `s3.amazonaws.com` - OPTIONAL
+* @param bool options.useSSL - Use SSL or not, default is true - OPTIONAL
+* @param bool options.maxRetry - Max upload retry, 0 will disable retries. Default is 3 - OPTIONAL
 **/
-module.exports = function (bucketID,AWSAccessKeyID,AWSSecretAccessKey,fileName,chunkSize) { return new CloudPipe(bucketID,AWSAccessKeyID,AWSSecretAccessKey,fileName,chunkSize); }
-function CloudPipe(_bucketID,_AWSAccessKeyID,_AWSSecretAccessKey,fileName,chunkSize) {
+module.exports = function (bucketID,AWSAccessKeyID,AWSSecretAccessKey,fileName,chunkSize,options) { return new CloudPipe(bucketID,AWSAccessKeyID,AWSSecretAccessKey,fileName,chunkSize,options); }
+function CloudPipe(_bucketID,_AWSAccessKeyID,_AWSSecretAccessKey,fileName,chunkSize,options) {
 	CloudPipeObject = this;
 	//Checks
 	if (!_bucketID) {
@@ -62,18 +61,22 @@ function CloudPipe(_bucketID,_AWSAccessKeyID,_AWSSecretAccessKey,fileName,chunkS
 		return;
 	}
 	//
-	CloudPipeObject.bucketID = _bucketID;
-	CloudPipeObject.AWSAccessKeyID = _AWSAccessKeyID;
-	CloudPipeObject.AWSSecretAccessKey = _AWSSecretAccessKey;
-	CloudPipeObject.fileName = fileName;
+	CloudPipeObject.bucketID = _bucketID;//bucket name
+	CloudPipeObject.AWSAccessKeyID = _AWSAccessKeyID;//Amazon access key id
+	CloudPipeObject.AWSSecretAccessKey = _AWSSecretAccessKey;//Amazon secret access key
+	CloudPipeObject.fileName = fileName;//File name to be created by upload
+	CloudPipeObject.options = options;//CP Options
 	//Chunk controller
-	CloudPipeObject.maxChunkSize = chunkSize;
-	CloudPipeObject.dataContainer = new Buffer(CloudPipeObject.maxChunkSize);
-	CloudPipeObject.dataInBuffer = 0;
+	CloudPipeObject.maxChunkSize = chunkSize;//max chunk size to be o buffer, before uploading
+	CloudPipeObject.dataContainer = new Buffer(CloudPipeObject.maxChunkSize);//buffer
+	CloudPipeObject.dataInBuffer = 0;//data already wrote on buffer
 	//Upload controller
-	CloudPipeObject.dyeSignal = false ;
-	CloudPipeObject.uploadedChunks = 0;
-	CloudPipeObject.isUploading = false ;
+	if (CloudPipeObject.options && CloudPipeObject.options["maxRetry"]) { CloudPipeObject.uploadRetry = CloudPipeObject.options["maxRetry"]; }
+	else { CloudPipeObject.uploadRetry = 3; }
+	CloudPipeObject.dyeSignal = false ; //should dye signal
+	CloudPipeObject.uploadedChunks = 0; //uploaded chunk count
+	CloudPipeObject.uploadTried = 0; //failed uploads in same chunk
+	CloudPipeObject.isUploading = false ; //is uploading flag
 	//AddListener newListener 
 	CloudPipeObject.addListener("newListener",function (event,listFunction) {
 		switch (event) {
@@ -90,16 +93,17 @@ inherits(CloudPipe, EventEmitter);
 **/
 CloudPipe.prototype.getReady = function getReady() {
 	//Get JSss
-	CloudPipeObject.JSss = require("jsss")(CloudPipeObject.bucketID,CloudPipeObject.AWSAccessKeyID,CloudPipeObject.AWSSecretAccessKey,CloudPipeObject.fileName);
+	CloudPipeObject.JSss = require("jsss")(CloudPipeObject.bucketID,CloudPipeObject.AWSAccessKeyID,CloudPipeObject.AWSSecretAccessKey,CloudPipeObject.fileName,CloudPipeObject.options);
 	assert.ok(CloudPipeObject.JSss,"JSss mmodule couldn't be loaded.");
 	
 	//JSss events
 	CloudPipeObject.JSss.on("jsss-end",function () {
-		CloudPipeObject.emit("cp-end");
+		CloudPipeObject.emitOnce("cp-end");
+		CloudPipeObject.removeAllListeners("cp-error");
 	});
 	CloudPipeObject.JSss.on("jsss-error",function (err) {
-		CloudPipeObject.emit("cp-error",err);
-		CloudPipeObject.emit("cp-end");
+		CloudPipeObject.emitOnce("cp-error",err);
+		CloudPipeObject.emitOnce("cp-end");
 	});
 	CloudPipeObject.JSss.on("jsss-upload-notice",function (partNumber,status) {
 		//Check if is from different part, it should NEVER happen
@@ -121,13 +125,19 @@ CloudPipe.prototype.getReady = function getReady() {
 			}
 		}else {
 			//Check if can retry
-			if (canRetry) {
+			if (CloudPipeObject.uploadTried == 0) {
+				//it'll fire error, where user should call abort method.
+				CloudPipeObject.emitOnce("cp-error","*CloudPipe* - Error in upload chunk, 'options.maxRetry' are disabled !");
+				CloudPipeObject.emitOnce("cp-end");
+			}
+			else if (CloudPipeObject.uploadTried < CloudPipeObject.uploadRetry) {
+				CloudPipeObject.uploadTried ++;
 				//retry upload
 				CloudPipeObject.JSss.uploadChunk(CloudPipeObject.dataContainer.slice(0,CloudPipeObject.dataInBuffer),CloudPipeObject.uploadedChunks);
 			}else {
 				//it'll fire error, where user should call abort method.
-				CloudPipeObject.emit("cp-error","*CloudPipe* - Error in upload chunk, and preferences are set to NO retry, when upload fails !");
-				CloudPipeObject();
+				CloudPipeObject.emitOnce("cp-error","*CloudPipe* - Error in upload chunk, max upload try reached !(max:"+CloudPipeObject.uploadRetry+",try:"+CloudPipeObject.uploadTried+")");
+				CloudPipeObject.emitOnce("cp-end");
 			}	
 		}
 	});
@@ -139,9 +149,8 @@ CloudPipe.prototype.getReady = function getReady() {
 
 /**
 * Write chunk 
-* (notice this function will not call error listener, it'll return false
+* Notice: this function will not call error listener, it'll return false
 * if cannot write chunk size, it'll fire `drained` event when can write again.
-* It'll return false if cannot write
 *
 * @param string chunkData - Chunk to be added - REQUIRED
 **/
@@ -171,17 +180,12 @@ CloudPipe.prototype.abort = function abort() {
 CloudPipe.prototype.finish = function finish() {
 	//Check if have chunks to be uploaded !
 	if (CloudPipeObject.isUploading) {
-					console.log("is on UP !");
 		return false;
 	}else { 
 		if (CloudPipeObject.dataInBuffer > 0) {
-			console.log("finish but dye signal!");
 			CloudPipeObject.dyeSignal = true ;
 			CloudPipeObject._write(null,true);
-		}else { 
-						console.log("finish UP!");
-			CloudPipeObject.JSss.finishUpload(); 
-		}
+		}else { CloudPipeObject.JSss.finishUpload(); }
 	}
 	return true;
 };
@@ -192,12 +196,11 @@ CloudPipe.prototype.finish = function finish() {
 
 /**
 * Write chunk 
-* (notice this function will not call error listener, it'll return false
-* if cannot write chunk size, it'll fire `drained` event when can write again.
-* It'll return false if cannot write
+* (notice this function will not call error listener directly)
+* if cannot write chunk size will return false and fire `cp-drained` event when can write again.
 *
 * @param string chunkData - Chunk to be added - REQUIRED
-* @param string chunkData - try to force upload in lower sizes (BUT IF AN UPLOADING IS ALREDY UPLOADING iIS ALREADY IN PROGRESS IT'LL FAIL) - REQUIRED
+* @param boolean forceUp - try to force upload in lower sizes (BUT IF AN UPLOADING IS ALREDY UPLOADING iIS ALREADY IN PROGRESS IT'LL FAIL) - REQUIRED
 **/
 CloudPipe.prototype._write = function _write(chunkData,forceUp) {
 	//Check if is uploading ?
@@ -211,6 +214,7 @@ CloudPipe.prototype._write = function _write(chunkData,forceUp) {
 	//Check if should start uploading
 	else if ((forceUp || CloudPipeObject.dataInBuffer + chunkData.length > CloudPipeObject.maxChunkSize) && !CloudPipeObject.isUploading) {
 		console.log("uping");
+		CloudPipeObject.uploadTried = 0;
 		CloudPipeObject.isUploading = true ;
 		CloudPipeObject.uploadedChunks++; 
 		//Start upload
@@ -223,4 +227,17 @@ CloudPipe.prototype._write = function _write(chunkData,forceUp) {
 		console.log(CloudPipeObject.dataInBuffer);
 		return true;
 	} return false;
+};
+
+
+
+
+/**
+* It'll emit and remove listener after it
+**/
+CloudPipe.prototype.emitOnce = function emitOnce(event) {
+	//Emit
+	CloudPipeObject.emit.apply(CloudPipeObject,arguments);
+	//remove listener
+	CloudPipeObject.removeAllListeners(event);
 };

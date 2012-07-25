@@ -1,16 +1,16 @@
 {
   "name": "cloud-pipe",
-  "description": "Simple Buffer that automatically upload it data to S3 on pre-chunks-size",
+  "description": "Simple Buffer that automatically upload it data to S3 on chunks.",
   "version": "0.0.1",
   "author": "TotenDev LTDA <support@totendev.com> (http://totendev.com)",
   "dependencies": {
-    	"jsss": "0.0.14"
+    	"jsss": "0.0.15"
   },
   "engines": {
     "node": ">= 0.6"
   },
   "main":"src/cloud-pipe.js",
-  "license":"MIT",
+  "license":"GPLv3",
   "repository":{
 	"type":"git",
 	"url":"git://github.com/TotenDev/Cloud-Pipe.git"
