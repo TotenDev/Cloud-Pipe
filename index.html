@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <link href='https://fonts.googleapis.com/css?family=Chivo:900' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print" />
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <title>Cloud-pipe by TotenDev</title>
+  </head>
+
+  <body>
+    <div id="container">
+      <div class="inner">
+
+        <header>
+          <h1>Cloud-pipe</h1>
+          <h2></h2>
+        </header>
+
+        <section id="downloads" class="clearfix">
+          <a href="https://github.com/TotenDev/Cloud-Pipe/zipball/master" id="download-zip" class="button"><span>Download .zip</span></a>
+          <a href="https://github.com/TotenDev/Cloud-Pipe/tarball/master" id="download-tar-gz" class="button"><span>Download .tar.gz</span></a>
+          <a href="https://github.com/TotenDev/Cloud-Pipe" id="view-on-github" class="button"><span>View on GitHub</span></a>
+        </section>
+
+        <hr>
+
+        <section id="main_content">
+          <h1>CloudPipe</h1>
+
+<p>Simple Buffer that automatically upload it data to S3 on chunks.</p>
+
+<h2>About</h2>
+
+<p>Cloud-Pipe is an easy way of handling huge datas in very low memory and ephemeral writeable filesystems.<br>
+It can receive data and buffer it to some size specified by you, after fill buffer up, it'll stop receiving data and uploading it to S3 with MultipartUpload. This allows you to upload multiple chunks into S3 and join then later on cloud.</p>
+
+<h2>Requirements</h2>
+
+<ul>
+<li><a href="https://github.com/isaacs/npm">npm</a></li>
+<li><a href="https://github.com/TotenDev/JSss">JSss</a></li>
+</ul><h2>Installation</h2>
+
+<p>Download and install dependencies</p>
+
+<pre><code>$ npm install
+</code></pre>
+
+<h2>Usage</h2>
+
+<pre><code>var maxChunkSize = 10000000; //10 mb
+var cp = require("./../src/cloud-pipe.js")("my bucket name","myAccessKey","mySecret","file.zip",maxChunkSize);
+cp.on("cp-error",function (err) {
+    console.log("error",err);
+});
+cp.on("cp-end",function () {
+    console.log("end");
+});
+cp.on("cp-drained",function () {
+    console.log("should resume writing");
+});
+//Must be registered in order to CloudPipe get ready
+cp.on("cp-ready",function () {
+    var chunk = "OMG"
+    if (!cp.write(new Buffer(chunk,'binary'))) { /*wait until cp-drained event, and write again there*/ }
+    else { cp.finish(); }
+});
+</code></pre>
+
+<p>More samples at <code>samples/</code> directory.</p>
+
+<h2>Methods</h2>
+
+<h4>Initialize Wrapper</h4>
+
+<p>Parameters:</p>
+
+<ul>
+<li>bucketID - <strong>Type:</strong>string - <strong>Description:</strong>Name of Object in S3 bucket   - <strong>REQUIRED</strong>
+</li>
+<li>AWSAccessKeyID - <strong>Type:</strong>string - <strong>Description:</strong>AWS AccessKeyID - <strong>REQUIRED</strong>
+</li>
+<li>AWSSecretAccessKey - <strong>Type:</strong>string - <strong>Description:</strong>AWS SecretAccessKey - <strong>REQUIRED</strong>
+</li>
+<li>fileName - <strong>Type:</strong>string - <strong>Description:</strong>fileName to be on S3 - <strong>REQUIRED</strong>
+</li>
+<li>chunkSize - <strong>Type:</strong>integer - <strong>Description:</strong>Chunk in bytes to be on S3 (Got be 5MB or bigger) - <strong>REQUIRED</strong>
+</li>
+<li>options - <strong>Type:</strong>OptionObject - <strong>Description:</strong>Options Object - <strong>OPTIONAL</strong>
+</li>
+<li>options.endPoint - <strong>Type:</strong>string - <strong>Description:</strong>End point to be used, default <code>s3.amazonaws.com</code> - <strong>OPTIONAL</strong>
+</li>
+<li>options.useSSL - <strong>Type:</strong>boolean - <strong>Description:</strong>Use SSL or not, default is true - <strong>OPTIONAL</strong>
+</li>
+<li>options.maxRetry - <strong>Type:</strong>integer - <strong>Description:</strong>Max upload retry, 0 will disable retries. Default is 3 - <strong>OPTIONAL</strong>
+</li>
+</ul><p>Sample:</p>
+
+<pre><code>var CloudPipe = require("cloud-pipe")("myBucket","AWSAccessKey","AWSSecretAccessKey","fileNameToBeUp",10000000,{ endPoint:"secondary.s3.com",useSSL:false,maxRetry:1 });
+</code></pre>
+
+<hr><h4>Write Chunk</h4>
+
+<p>This function will not call error listener, it'll return false if cannot write chunk size.<br>
+After it'll fire <code>cp-drained</code> event when can write again.</p>
+
+<p>Parameters:</p>
+
+<ul>
+<li>chunkData - <strong>Type:</strong>Buffer - <strong>Description:</strong>Chunk to be on buffer and after uploaded to S3. (Got be <code>Buffer</code> object encoded as <code>binary</code>) - <strong>REQUIRED</strong>
+</li>
+</ul><p>Sample:</p>
+
+<pre><code>CloudPipe.write(new Buffer('OMG This is my chunk','binary'));
+</code></pre>
+
+<hr><h4>Finish Upload</h4>
+
+<p>This method will finish upload and upload what remains on <code>Buffer</code>. It can take a bit long for large files, since amazon will only answer the request when all parts are joined.</p>
+
+<p>Sample:</p>
+
+<pre><code>CloudPipe.finish();
+</code></pre>
+
+<hr><h4>Abort Upload</h4>
+
+<p>This method will cancel upload, and delete all uploaded chunks.</p>
+
+<p>Sample:</p>
+
+<pre><code>CloudPipe.abort();
+</code></pre>
+
+<h2>Events</h2>
+
+<h4>Ready</h4>
+
+<p>This event <strong>MUST</strong> be registered in order to wrapper start. When this event is reached you are able to start writing.</p>
+
+<p>Event-String: <code>cp-ready</code></p>
+
+<p>Sample:</p>
+
+<pre><code>//Must be registered to CloudPipe API start
+cp.on("cp-ready",function () {
+    console.log("I'm ready :)");
+}
+</code></pre>
+
+<hr><h4>Drained Notice</h4>
+
+<p>This event will be reached when old buffer has been uploaded with success, so you can start writing again.<br>
+By default if error happen it will try 3 times until emit error event, this can be set on initialization options.</p>
+
+<p>Event-String: <code>cp-drained</code></p>
+
+<p>Sample:</p>
+
+<pre><code>cp.on("cp-drained",function () {
+    console.log("resuming cpipe write");
+    cp.write(new Buffer("resume data",'binary'));
+});
+</code></pre>
+
+<hr><h4>Error</h4>
+
+<p>This event will be reached when an error occur in any part that cannot be recovered, so you need to try again. :(<br>
+Do <strong>NOT</strong> call <code>terminate</code> or <code>abort</code> method from error event, since those methods can emit an error event.</p>
+
+<p>Event-String: <code>cp-error</code></p>
+
+<p>Sample:</p>
+
+<pre><code>cp.on("cp-error",function (err) {
+    console.log("error in cpipe",err);
+});
+</code></pre>
+
+<hr><h4>End</h4>
+
+<p>This event will be reached after finished by <code>abort()</code> or <code>finish()</code> OR if it didn't start properly.</p>
+
+<p>Event-String: <code>cp-end</code></p>
+
+<p>Sample:</p>
+
+<pre><code>cp.on("cp-end",function () {
+    console.log("Bye cpipe");
+}
+</code></pre>
+
+<h2>Contributing</h2>
+
+<ol>
+<li>Fork it</li>
+<li>Create your feature branch (<code>git checkout -b my-new-feature</code>)</li>
+<li>Commit your changes (<code>git commit -am 'Added some feature'</code>)</li>
+<li>Push to the branch (<code>git push origin my-new-feature</code>)</li>
+<li>Create new Pull Request</li>
+</ol><h2>License</h2>
+
+<p><a href="Cloud-Pipe/raw/master/LICENSE">GPL v3</a></p>
+        </section>
+
+        <footer>
+          Cloud-pipe is maintained by <a href="https://github.com/TotenDev">TotenDev</a><br>
+          This page was generated by <a href="http://pages.github.com">GitHub Pages</a>. Tactile theme by <a href="http://twitter.com/jasonlong">Jason Long</a>.
+        </footer>
+
+                  <script type="text/javascript">
+            var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+            document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+          </script>
+          <script type="text/javascript">
+            try {
+              var pageTracker = _gat._getTracker("UA-33640421-1");
+            pageTracker._trackPageview();
+            } catch(err) {}
+          </script>
+
+      </div>
+    </div>
+  </body>
+</html>
