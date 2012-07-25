@@ -1,0 +1,23 @@
+{
+  "name": "cloud-pipe",
+  "description": "Simple Buffer that automatically upload it data to S3 on pre-chunks-size",
+  "version": "0.0.1",
+  "author": "TotenDev LTDA <support@totendev.com> (http://totendev.com)",
+  "dependencies": {
+    	"jsss": "0.0.14"
+  },
+  "engines": {
+    "node": ">= 0.6"
+  },
+  "main":"src/cloud-pipe.js",
+  "license":"MIT",
+  "repository":{
+	"type":"git",
+	"url":"git://github.com/TotenDev/Cloud-Pipe.git"
+  },
+  "maintainers":[{
+   "name": "Gabriel Wady",
+   "email": "gabriel@totendev.com"
+  }],
+  "keywords": [ "AWS","Amazon","S3","Multipart","upload","buffer","stream","cloud","pipe"]
+}
