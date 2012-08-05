@@ -8,7 +8,8 @@
 var util = require ('util'),
 	inherits = require('util').inherits,
 	assert = require('assert'),
-	EventEmitter = require('events').EventEmitter;
+	EventEmitter = require('events').EventEmitter,
+	debug = process.env.DEBUG ? console.error : function () {};
 	
 /**
 * Initialize CloudPipe function
@@ -28,31 +29,31 @@ function CloudPipe(_bucketID,_AWSAccessKeyID,_AWSSecretAccessKey,fileName,chunkS
 	//Checks
 	if (!_bucketID) {
 		var errMsg = "_bucketID *REQUIRED* parameter is missing;";
-		console.error(errMsg);
+		debug(errMsg);
 		this.emit("error",errMsg);/*stills emitting error, so an exception will be raise*/
 		this.emit("cp-end");
 		return;
 	}else if (!_AWSAccessKeyID) {
 		var errMsg = "_AWSAccessKeyID *REQUIRED* parameter is missing;";
-		console.error(errMsg);
+		debug(errMsg);
 		this.emit("error",errMsg);/*stills emitting error, so an exception will be raise*/
 		this.emit("cp-end");
 		return;
 	}else if (!_AWSSecretAccessKey) {
 		var errMsg = "_AWSSecretAccessKey *REQUIRED* parameter is missing;";
-		console.error(errMsg);
+		debug(errMsg);
 		this.emit("error",errMsg);/*stills emitting error, so an exception will be raise*/
 		this.emit("cp-end");
 		return;
 	}else if (!fileName) {
 		var errMsg = "fileName *REQUIRED* parameter is missing;";
-		console.error(errMsg);
+		debug(errMsg);
 		this.emit("error",errMsg);/*stills emitting error, so an exception will be raise*/
 		this.emit("cp-end");
 		return;
 	} else if (!chunkSize) {
 		var errMsg = "chunkSize *REQUIRED* parameter is missing;";
-		console.error(errMsg);
+		debug(errMsg);
 		this.emit("error",errMsg);/*stills emitting error, so an exception will be raise*/
 		this.emit("cp-end");
 		return;
@@ -207,11 +208,11 @@ CloudPipe.prototype.finish = function finish() {
 **/
 CloudPipe.prototype._write = function _write(chunkData,forceUp) {
 	//Check if is uploading ?
-	if (this.isUploading) { console.log("is uploading"); }
+	if (this.isUploading) { debug("cannot write, this instance of CloudPipe is alredy uploading a chunk."); }
 	//Check if can write
-	else if (this.dataContainer.length > this.maxChunkSize) { console.log("data is too big"); }
+	else if (this.dataContainer.length > this.maxChunkSize) { debug("cannot write, local data buffer is already on maximum size AND is not uploading!! Should not happen, something is really wrong."); }
 	//Check if should start uploading
-	else if ((forceUp || this.dataInBuffer + chunkData.length > this.maxChunkSize) && !this.isUploading) { console.log("uploading");
+	else if ((forceUp || this.dataInBuffer + chunkData.length > this.maxChunkSize) && !this.isUploading) { debug("Start uploading chunk to S3");
 		this.uploadTried = 0;
 		this.isUploading = true ;
 		this.uploadedChunks++; 
