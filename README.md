@@ -1,6 +1,6 @@
 # CloudPipe
 
-Simple Buffer that automatically upload it data to S3 on chunks.
+Simple Buffer that automatically upload it data to S3.
 
 ## About
 
