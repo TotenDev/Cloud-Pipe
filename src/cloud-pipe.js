@@ -9,7 +9,7 @@ var util = require ('util'),
 	inherits = require('util').inherits,
 	assert = require('assert'),
 	EventEmitter = require('events').EventEmitter,
-	debug = process.env.DEBUG ? console.error : function () {};
+	debug = (process.argv.indexOf('--debug') != -1 ? console.error : function () {});
 	
 /**
 * Initialize CloudPipe function
@@ -28,31 +28,31 @@ module.exports = function (bucketID,AWSAccessKeyID,AWSSecretAccessKey,fileName,c
 function CloudPipe(_bucketID,_AWSAccessKeyID,_AWSSecretAccessKey,fileName,chunkSize,options) {
 	//Checks
 	if (!_bucketID) {
-		var errMsg = "_bucketID *REQUIRED* parameter is missing;";
+		var errMsg = "*CloudPipe* _bucketID *REQUIRED* parameter is missing;";
 		debug(errMsg);
 		this.emit("error",errMsg);/*stills emitting error, so an exception will be raise*/
 		this.emit("cp-end");
 		return;
 	}else if (!_AWSAccessKeyID) {
-		var errMsg = "_AWSAccessKeyID *REQUIRED* parameter is missing;";
+		var errMsg = "*CloudPipe* _AWSAccessKeyID *REQUIRED* parameter is missing;";
 		debug(errMsg);
 		this.emit("error",errMsg);/*stills emitting error, so an exception will be raise*/
 		this.emit("cp-end");
 		return;
 	}else if (!_AWSSecretAccessKey) {
-		var errMsg = "_AWSSecretAccessKey *REQUIRED* parameter is missing;";
+		var errMsg = "*CloudPipe* _AWSSecretAccessKey *REQUIRED* parameter is missing;";
 		debug(errMsg);
 		this.emit("error",errMsg);/*stills emitting error, so an exception will be raise*/
 		this.emit("cp-end");
 		return;
 	}else if (!fileName) {
-		var errMsg = "fileName *REQUIRED* parameter is missing;";
+		var errMsg = "*CloudPipe* fileName *REQUIRED* parameter is missing;";
 		debug(errMsg);
 		this.emit("error",errMsg);/*stills emitting error, so an exception will be raise*/
 		this.emit("cp-end");
 		return;
 	} else if (!chunkSize) {
-		var errMsg = "chunkSize *REQUIRED* parameter is missing;";
+		var errMsg = "*CloudPipe* chunkSize *REQUIRED* parameter is missing;";
 		debug(errMsg);
 		this.emit("error",errMsg);/*stills emitting error, so an exception will be raise*/
 		this.emit("cp-end");
@@ -174,19 +174,21 @@ CloudPipe.prototype.abort = function abort() {
 **/
 CloudPipe.prototype.finish = function finish() {
 	//
-	var thisRef = thisl
+	var thisRef = this;
 	//Check if have chunks to be uploaded !
 	if (this.isUploading) { return false; }
 	else { 
 		if (this.dataInBuffer > 0) { /*still with not uploaded data in local buffer*/
-			if (uploadedChunks == 0) { /*no multipart chunks uploaded, so we will use normal upload API for that*/
+			if (this.uploadedChunks == 0) { /*no multipart chunks uploaded, so we will use normal upload API for that*/
+				debug("*CloudPipe* uploading data through simple upload API, since no max size has being reached.");
 				//Start single upload
-				this.JSss.S3API.singleUpload(this.fileName,this.dataContainer,function (ok,resp) {
+				this.JSss.S3Api.singleUpload(this.fileName,this.dataContainer.slice(0,this.dataInBuffer),function (ok,resp) {
 					if (!ok) { thisRef.emitOnce("cp-error","*CloudPipe* - Error in single upload: " + resp); }
 					thisRef.abort(); /*Anyway, we will abort it, since this will abort the multipart upload ONLY,
 										 which we are not using in this case, AND This will fire jsss-end event, which will emit cp-end event*/
 				},true);
 			}else { /*force last chunk upload on multipart*/
+				debug("*CloudPipe* will upload last chunk.");
 				this.dyeSignal = true ;
 				this._write(null,true);
 			}
@@ -208,11 +210,11 @@ CloudPipe.prototype.finish = function finish() {
 **/
 CloudPipe.prototype._write = function _write(chunkData,forceUp) {
 	//Check if is uploading ?
-	if (this.isUploading) { debug("cannot write, this instance of CloudPipe is alredy uploading a chunk."); }
+	if (this.isUploading) { debug("*CloudPipe* cannot write, this instance of CloudPipe is alredy uploading a chunk."); }
 	//Check if can write
-	else if (this.dataContainer.length > this.maxChunkSize) { debug("cannot write, local data buffer is already on maximum size AND is not uploading!! Should not happen, something is really wrong."); }
+	else if (this.dataContainer.length > this.maxChunkSize) { debug("*CloudPipe* cannot write, local data buffer is already on maximum size AND is not uploading!! Should not happen, something is really wrong."); }
 	//Check if should start uploading
-	else if ((forceUp || this.dataInBuffer + chunkData.length > this.maxChunkSize) && !this.isUploading) { debug("Start uploading chunk to S3");
+	else if ((forceUp || this.dataInBuffer + chunkData.length > this.maxChunkSize) && !this.isUploading) { debug("*CloudPipe* Start uploading chunk to S3");
 		this.uploadTried = 0;
 		this.isUploading = true ;
 		this.uploadedChunks++; 

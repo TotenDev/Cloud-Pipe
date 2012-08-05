@@ -19,6 +19,6 @@ cp.on("cp-drained",function () {
 //Must be registered in order to CloudPipe get ready
 cp.on("cp-ready",function () {
 	var chunk = "OMG"
-    if (!cp.write(new Buffer(chunk,'binary'))) { /*wait until cp-drained event, and write again there*/ }
+    if (!cp.write(chunk)) { /*wait until cp-drained event, and write again there*/ }
 	else { cp.finish(); }
 });

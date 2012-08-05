@@ -35,7 +35,7 @@ Download and install dependencies
 	//Must be registered in order to CloudPipe get ready
 	cp.on("cp-ready",function () {
 		var chunk = "OMG"
-        if (!cp.write(new Buffer(chunk,'binary'))) { /*wait until cp-drained event, and write again there*/ }
+        if (!cp.write(chunk)) { /*wait until cp-drained event, and write again there*/ }
 	    else { cp.finish(); }
 	});
 
@@ -67,11 +67,11 @@ This function will not call error listener, it'll return false if cannot write c
 After it'll fire `cp-drained` event when can write again.
 
 Parameters:
-- chunkData - **Type:**Buffer - **Description:**Chunk to be on buffer and after uploaded to S3. (Got be `Buffer` object encoded as `binary`) - **REQUIRED**
+- chunkData - **Type:**String - **Description:**Chunk to be on buffer and after uploaded to S3. - **REQUIRED**
 
 Sample:
 
-    CloudPipe.write(new Buffer('OMG This is my chunk','binary'));
+    CloudPipe.write('OMG This is my chunk');
 ---
 #### Finish Upload
 This method will finish upload and upload what remains on `Buffer`. It can take a bit long for large files, since amazon will only answer the request when all parts are joined.
@@ -113,7 +113,7 @@ Sample:
 
     cp.on("cp-drained",function () {
 		console.log("resuming cpipe write");
-		cp.write(new Buffer("resume data",'binary'));
+		cp.write("resume data");
 	});
 ---
 ####Error
