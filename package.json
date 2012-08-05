@@ -7,7 +7,7 @@
     	"jsss": "0.0.17"
   },
   "engines": {
-    "node": ">= 0.6"
+    "node": ">= 0.4"
   },
   "main":"src/cloud-pipe.js",
   "license":"GPLv3",

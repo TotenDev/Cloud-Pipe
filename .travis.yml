@@ -1,0 +1,16 @@
+language: node_js
+node_js:
+  - 0.4
+  - 0.5
+  - 0.6
+  - 0.7
+  - 0.8
+script: 
+  - "node samples/downloadSample.js"
+  - "node samples/usageSample-options.js"
+  - "node samples/usageSample.js"
+  - "node src/cloud-pipe.js"
+notifications:
+  irc:
+    channels:
+      - "irc.freenode.org#TotenDev"
