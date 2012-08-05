@@ -69,7 +69,7 @@ function CloudPipe(_bucketID,_AWSAccessKeyID,_AWSSecretAccessKey,fileName,chunkS
 	//Chunk controller
 	CloudPipeObject.maxChunkSize = chunkSize;//max chunk size to be o buffer, before uploading
 	CloudPipeObject.dataContainer = new Buffer(CloudPipeObject.maxChunkSize);//buffer
-	CloudPipeObject.dataInBuffer = 0;//data already wrote on buffer
+	CloudPipeObject.dataInBuffer = 0;//data already wrote on buffer only it lenght
 	//Upload controller
 	if (CloudPipeObject.options && CloudPipeObject.options["maxRetry"]) { CloudPipeObject.uploadRetry = CloudPipeObject.options["maxRetry"]; }
 	else { CloudPipeObject.uploadRetry = 3; }
@@ -99,7 +99,7 @@ CloudPipe.prototype.getReady = function getReady() {
 	//JSss events
 	CloudPipeObject.JSss.on("jsss-end",function () {
 		CloudPipeObject.emitOnce("cp-end");
-		CloudPipeObject.removeAllListeners("cp-error");
+		CloudPipeObject.removeAllListeners("cp-error");/*No errors should be emited when end event is emited*/
 	});
 	CloudPipeObject.JSss.on("jsss-error",function (err) {
 		CloudPipeObject.emitOnce("cp-error",err);
@@ -126,6 +126,8 @@ CloudPipe.prototype.getReady = function getReady() {
 		}else {
 			//Check if can retry
 			if (CloudPipeObject.uploadTried == 0) {
+				//set as not uploading
+				CloudPipeObject.isUploading = false ; 
 				//it'll fire error, where user should call abort method.
 				CloudPipeObject.emitOnce("cp-error","*CloudPipe* - Error in upload chunk, 'options.maxRetry' are disabled !");
 				CloudPipeObject.emitOnce("cp-end");
@@ -135,6 +137,8 @@ CloudPipe.prototype.getReady = function getReady() {
 				//retry upload
 				CloudPipeObject.JSss.uploadChunk(CloudPipeObject.dataContainer.slice(0,CloudPipeObject.dataInBuffer),CloudPipeObject.uploadedChunks);
 			}else {
+				//set as not uploading
+				CloudPipeObject.isUploading = false ; 
 				//it'll fire error, where user should call abort method.
 				CloudPipeObject.emitOnce("cp-error","*CloudPipe* - Error in upload chunk, max upload try reached !(max:"+CloudPipeObject.uploadRetry+",try:"+CloudPipeObject.uploadTried+")");
 				CloudPipeObject.emitOnce("cp-end");
@@ -154,9 +158,7 @@ CloudPipe.prototype.getReady = function getReady() {
 *
 * @param string chunkData - Chunk to be added - REQUIRED
 **/
-CloudPipe.prototype.write = function write(chunkData) {
-	return CloudPipeObject._write(chunkData,false);
-};
+CloudPipe.prototype.write = function write(chunkData) { return CloudPipeObject._write(chunkData,false); };
 /**
 * Abort cloudPipe
 * It'll cancel uploads, and delete all uploaded chunks.
@@ -179,15 +181,22 @@ CloudPipe.prototype.abort = function abort() {
 **/
 CloudPipe.prototype.finish = function finish() {
 	//Check if have chunks to be uploaded !
-	if (CloudPipeObject.isUploading) {
-		return false;
+	if (CloudPipeObject.isUploading) { return false;
 	}else { 
-		if (CloudPipeObject.dataInBuffer > 0) {
-			CloudPipeObject.dyeSignal = true ;
-			CloudPipeObject._write(null,true);
+		if (CloudPipeObject.dataInBuffer > 0) { /*still with not uploaded data in local buffer*/
+			if (uploadedChunks == 0) { /*no multipart chunks uploaded, so we will use normal upload API for that*/
+				//Start single upload
+				CloudPipeObject.JSss.S3API.singleUpload(CloudPipeObject.fileName,CloudPipeObject.dataContainer,function (ok,resp) {
+					if (!ok) { CloudPipeObject.emitOnce("cp-error","*CloudPipe* - Error in single upload: " + resp); }
+					CloudPipe.abort(); /*Anyway, we will abort it, since this will abort the multipart upload ONLY,
+										 which we are not using in this case, AND This will fire jsss-end event, which will emit cp-end event*/
+				},true);
+			}else { /*force last chunk upload on multipart*/
+				CloudPipeObject.dyeSignal = true ;
+				CloudPipeObject._write(null,true);
+			}
 		}else { CloudPipeObject.JSss.finishUpload(); }
-	}
-	return true;
+	} return true;
 };
 
 
@@ -200,20 +209,15 @@ CloudPipe.prototype.finish = function finish() {
 * if cannot write chunk size will return false and fire `cp-drained` event when can write again.
 *
 * @param string chunkData - Chunk to be added - REQUIRED
-* @param boolean forceUp - try to force upload in lower sizes (BUT IF AN UPLOADING IS ALREDY UPLOADING iIS ALREADY IN PROGRESS IT'LL FAIL) - REQUIRED
+* @param boolean forceUp - try to force upload in lower sizes (can fail in some cases) - REQUIRED
 **/
 CloudPipe.prototype._write = function _write(chunkData,forceUp) {
 	//Check if is uploading ?
-	if (CloudPipeObject.isUploading) {
-		console.log("is uploading");
-	}
+	if (CloudPipeObject.isUploading) { console.log("is uploading"); }
 	//Check if can write
-	else if (CloudPipeObject.dataContainer.length > CloudPipeObject.maxChunkSize) {
-		console.log("data is too big");
-	}
+	else if (CloudPipeObject.dataContainer.length > CloudPipeObject.maxChunkSize) { console.log("data is too big"); }
 	//Check if should start uploading
-	else if ((forceUp || CloudPipeObject.dataInBuffer + chunkData.length > CloudPipeObject.maxChunkSize) && !CloudPipeObject.isUploading) {
-		console.log("uping");
+	else if ((forceUp || CloudPipeObject.dataInBuffer + chunkData.length > CloudPipeObject.maxChunkSize) && !CloudPipeObject.isUploading) { console.log("uploading");
 		CloudPipeObject.uploadTried = 0;
 		CloudPipeObject.isUploading = true ;
 		CloudPipeObject.uploadedChunks++; 

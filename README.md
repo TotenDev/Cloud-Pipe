@@ -9,6 +9,7 @@ It can receive data and buffer it to some size specified by you, after fill buff
 
 ## Requirements
 
+- [node](https://github.com/joyent/node)
 - [npm](https://github.com/isaacs/npm)
 - [JSss](https://github.com/TotenDev/JSss)
 
