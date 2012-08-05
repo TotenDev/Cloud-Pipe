@@ -10,8 +10,6 @@ var util = require ('util'),
 	assert = require('assert'),
 	EventEmitter = require('events').EventEmitter;
 	
-canRetry = true ;
-	
 /**
 * Initialize CloudPipe function
 *
@@ -27,60 +25,60 @@ canRetry = true ;
 **/
 module.exports = function (bucketID,AWSAccessKeyID,AWSSecretAccessKey,fileName,chunkSize,options) { return new CloudPipe(bucketID,AWSAccessKeyID,AWSSecretAccessKey,fileName,chunkSize,options); }
 function CloudPipe(_bucketID,_AWSAccessKeyID,_AWSSecretAccessKey,fileName,chunkSize,options) {
-	CloudPipeObject = this;
 	//Checks
 	if (!_bucketID) {
 		var errMsg = "_bucketID *REQUIRED* parameter is missing;";
 		console.error(errMsg);
-		CloudPipeObject.emit("error",errMsg);/*stills emitting error, so an exception will be raise*/
-		CloudPipeObject.emit("cp-end");
+		this.emit("error",errMsg);/*stills emitting error, so an exception will be raise*/
+		this.emit("cp-end");
 		return;
 	}else if (!_AWSAccessKeyID) {
 		var errMsg = "_AWSAccessKeyID *REQUIRED* parameter is missing;";
 		console.error(errMsg);
-		CloudPipeObject.emit("error",errMsg);/*stills emitting error, so an exception will be raise*/
-		CloudPipeObject.emit("cp-end");
+		this.emit("error",errMsg);/*stills emitting error, so an exception will be raise*/
+		this.emit("cp-end");
 		return;
 	}else if (!_AWSSecretAccessKey) {
 		var errMsg = "_AWSSecretAccessKey *REQUIRED* parameter is missing;";
 		console.error(errMsg);
-		CloudPipeObject.emit("error",errMsg);/*stills emitting error, so an exception will be raise*/
-		CloudPipeObject.emit("cp-end");
+		this.emit("error",errMsg);/*stills emitting error, so an exception will be raise*/
+		this.emit("cp-end");
 		return;
 	}else if (!fileName) {
 		var errMsg = "fileName *REQUIRED* parameter is missing;";
 		console.error(errMsg);
-		CloudPipeObject.emit("error",errMsg);/*stills emitting error, so an exception will be raise*/
-		CloudPipeObject.emit("cp-end");
+		this.emit("error",errMsg);/*stills emitting error, so an exception will be raise*/
+		this.emit("cp-end");
 		return;
 	} else if (!chunkSize) {
 		var errMsg = "chunkSize *REQUIRED* parameter is missing;";
 		console.error(errMsg);
-		CloudPipeObject.emit("error",errMsg);/*stills emitting error, so an exception will be raise*/
-		CloudPipeObject.emit("cp-end");
+		this.emit("error",errMsg);/*stills emitting error, so an exception will be raise*/
+		this.emit("cp-end");
 		return;
 	}
 	//
-	CloudPipeObject.bucketID = _bucketID;//bucket name
-	CloudPipeObject.AWSAccessKeyID = _AWSAccessKeyID;//Amazon access key id
-	CloudPipeObject.AWSSecretAccessKey = _AWSSecretAccessKey;//Amazon secret access key
-	CloudPipeObject.fileName = fileName;//File name to be created by upload
-	CloudPipeObject.options = options;//CP Options
+	this.bucketID = _bucketID;//bucket name
+	this.AWSAccessKeyID = _AWSAccessKeyID;//Amazon access key id
+	this.AWSSecretAccessKey = _AWSSecretAccessKey;//Amazon secret access key
+	this.fileName = fileName;//File name to be created by upload
+	this.options = options;//CP Options
 	//Chunk controller
-	CloudPipeObject.maxChunkSize = chunkSize;//max chunk size to be o buffer, before uploading
-	CloudPipeObject.dataContainer = new Buffer(CloudPipeObject.maxChunkSize);//buffer
-	CloudPipeObject.dataInBuffer = 0;//data already wrote on buffer only it lenght
+	this.maxChunkSize = chunkSize;//max chunk size to be o buffer, before uploading
+	this.dataContainer = new Buffer(this.maxChunkSize);//buffer
+	this.dataInBuffer = 0;//data already wrote on buffer only it lenght
 	//Upload controller
-	if (CloudPipeObject.options && CloudPipeObject.options["maxRetry"]) { CloudPipeObject.uploadRetry = CloudPipeObject.options["maxRetry"]; }
-	else { CloudPipeObject.uploadRetry = 3; }
-	CloudPipeObject.dyeSignal = false ; //should dye signal
-	CloudPipeObject.uploadedChunks = 0; //uploaded chunk count
-	CloudPipeObject.uploadTried = 0; //failed uploads in same chunk
-	CloudPipeObject.isUploading = false ; //is uploading flag
+	if (this.options && this.options["maxRetry"]) { this.uploadRetry = this.options["maxRetry"]; }
+	else { this.uploadRetry = 3; }
+	this.dyeSignal = false ; //should dye signal
+	this.uploadedChunks = 0; //uploaded chunk count
+	this.uploadTried = 0; //failed uploads in same chunk
+	this.isUploading = false ; //is uploading flag
 	//AddListener newListener 
-	CloudPipeObject.addListener("newListener",function (event,listFunction) {
+	var thisRef = this;
+	this.addListener("newListener",function (event,listFunction) {
 		switch (event) {
-			case "cp-ready":{ CloudPipeObject.getReady(); } break;
+			case "cp-ready":{ thisRef.getReady(); } break;
 			default: {} break;
 		}
 	});
@@ -93,62 +91,56 @@ inherits(CloudPipe, EventEmitter);
 **/
 CloudPipe.prototype.getReady = function getReady() {
 	//Get JSss
-	CloudPipeObject.JSss = require("jsss")(CloudPipeObject.bucketID,CloudPipeObject.AWSAccessKeyID,CloudPipeObject.AWSSecretAccessKey,CloudPipeObject.fileName,CloudPipeObject.options);
-	assert.ok(CloudPipeObject.JSss,"JSss mmodule couldn't be loaded.");
-	
+	this.JSss = require("jsss")(this.bucketID,this.AWSAccessKeyID,this.AWSSecretAccessKey,this.fileName,this.options);
+	assert.ok(this.JSss,"JSss mmodule couldn't be loaded.");
+	//ref
+	var thisRef = this;
 	//JSss events
-	CloudPipeObject.JSss.on("jsss-end",function () {
-		CloudPipeObject.emitOnce("cp-end");
-		CloudPipeObject.removeAllListeners("cp-error");/*No errors should be emited when end event is emited*/
+	this.JSss.on("jsss-end",function () {
+		thisRef.emitOnce("cp-end");
+		thisRef.removeAllListeners("cp-error");/*No errors should be emited when end event is emited*/
 	});
-	CloudPipeObject.JSss.on("jsss-error",function (err) {
-		CloudPipeObject.emitOnce("cp-error",err);
-		CloudPipeObject.emitOnce("cp-end");
+	this.JSss.on("jsss-error",function (err) {
+		thisRef.emitOnce("cp-error",err);
+		thisRef.emitOnce("cp-end");
 	});
-	CloudPipeObject.JSss.on("jsss-upload-notice",function (partNumber,status) {
+	this.JSss.on("jsss-upload-notice",function (partNumber,status) {
 		//Check if is from different part, it should NEVER happen
-		if (partNumber != CloudPipeObject.uploadedChunks) { return; }
+		if (partNumber != thisRef.uploadedChunks) { return; }
 		//Check if uplaod has been done okay
 		if (status == true) {
 			//set as not uploading
-			CloudPipeObject.isUploading = false ; 
+			thisRef.isUploading = false ; 
 			//set data as empty
-			CloudPipeObject.dataContainer = null;
-			CloudPipeObject.dataContainer = new Buffer(CloudPipeObject.maxChunkSize);
-			CloudPipeObject.dataInBuffer = 0;
-			if (CloudPipeObject.dyeSignal == true) {
-				//try to finish
-				CloudPipeObject.finish();
-			}else {
-				//emit drained, so it can re-start upload
-				CloudPipeObject.emit("cp-drained");
-			}
+			thisRef.dataContainer = null;
+			thisRef.dataContainer = new Buffer(thisRef.maxChunkSize);
+			thisRef.dataInBuffer = 0;
+			if (thisRef.dyeSignal == true) { /*try to finish*/ thisRef.finish(); }
+			else { /*emit drained, so it can re-start upload*/ thisRef.emit("cp-drained"); }
 		}else {
 			//Check if can retry
-			if (CloudPipeObject.uploadTried == 0) {
+			if (thisRef.uploadTried == 0) {
 				//set as not uploading
-				CloudPipeObject.isUploading = false ; 
+				thisRef.isUploading = false ; 
 				//it'll fire error, where user should call abort method.
-				CloudPipeObject.emitOnce("cp-error","*CloudPipe* - Error in upload chunk, 'options.maxRetry' are disabled !");
-				CloudPipeObject.emitOnce("cp-end");
+				thisRef.emitOnce("cp-error","*CloudPipe* - Error in upload chunk, 'options.maxRetry' are disabled !");
+				thisRef.emitOnce("cp-end");
 			}
-			else if (CloudPipeObject.uploadTried < CloudPipeObject.uploadRetry) {
-				CloudPipeObject.uploadTried ++;
+			else if (thisRef.uploadTried < thisRef.uploadRetry) {
+				thisRef.uploadTried ++;
 				//retry upload
-				CloudPipeObject.JSss.uploadChunk(CloudPipeObject.dataContainer.slice(0,CloudPipeObject.dataInBuffer),CloudPipeObject.uploadedChunks);
+				thisRef.JSss.uploadChunk(thisRef.dataContainer.slice(0,thisRef.dataInBuffer),thisRef.uploadedChunks);
 			}else {
 				//set as not uploading
-				CloudPipeObject.isUploading = false ; 
+				thisRef.isUploading = false ; 
 				//it'll fire error, where user should call abort method.
-				CloudPipeObject.emitOnce("cp-error","*CloudPipe* - Error in upload chunk, max upload try reached !(max:"+CloudPipeObject.uploadRetry+",try:"+CloudPipeObject.uploadTried+")");
-				CloudPipeObject.emitOnce("cp-end");
+				thisRef.emitOnce("cp-error","*CloudPipe* - Error in upload chunk, max upload try reached !(max:"+thisRef.uploadRetry+",try:"+thisRef.uploadTried+")");
+				thisRef.emitOnce("cp-end");
 			}	
 		}
 	});
 	//when ready fire cp-ready event
-	CloudPipeObject.JSss.on("jsss-ready",function () { 
-		CloudPipeObject.emit("cp-ready");	
-	});
+	this.JSss.on("jsss-ready",function () {  thisRef.emit("cp-ready"); });
 };
 
 /**
@@ -158,7 +150,7 @@ CloudPipe.prototype.getReady = function getReady() {
 *
 * @param string chunkData - Chunk to be added - REQUIRED
 **/
-CloudPipe.prototype.write = function write(chunkData) { return CloudPipeObject._write(chunkData,false); };
+CloudPipe.prototype.write = function write(chunkData) { return this._write(chunkData,false); };
 /**
 * Abort cloudPipe
 * It'll cancel uploads, and delete all uploaded chunks.
@@ -166,10 +158,10 @@ CloudPipe.prototype.write = function write(chunkData) { return CloudPipeObject._
 **/
 CloudPipe.prototype.abort = function abort() {
 	//resets data
-	CloudPipeObject.dataContainer.fill(0);
-	CloudPipeObject.dataInBuffer = 0;
+	this.dataContainer.fill(0);
+	this.dataInBuffer = 0;
 	//abort now
-	CloudPipeObject.JSss.abortUpload();
+	this.JSss.abortUpload();
 	return true;
 };
 /**
@@ -180,22 +172,24 @@ CloudPipe.prototype.abort = function abort() {
 * Confirmation of termination, comes as end event ! (it'll return immediatly return respose, to say if it will terminate now or not) !)
 **/
 CloudPipe.prototype.finish = function finish() {
+	//
+	var thisRef = thisl
 	//Check if have chunks to be uploaded !
-	if (CloudPipeObject.isUploading) { return false;
-	}else { 
-		if (CloudPipeObject.dataInBuffer > 0) { /*still with not uploaded data in local buffer*/
+	if (this.isUploading) { return false; }
+	else { 
+		if (this.dataInBuffer > 0) { /*still with not uploaded data in local buffer*/
 			if (uploadedChunks == 0) { /*no multipart chunks uploaded, so we will use normal upload API for that*/
 				//Start single upload
-				CloudPipeObject.JSss.S3API.singleUpload(CloudPipeObject.fileName,CloudPipeObject.dataContainer,function (ok,resp) {
-					if (!ok) { CloudPipeObject.emitOnce("cp-error","*CloudPipe* - Error in single upload: " + resp); }
-					CloudPipe.abort(); /*Anyway, we will abort it, since this will abort the multipart upload ONLY,
+				this.JSss.S3API.singleUpload(this.fileName,this.dataContainer,function (ok,resp) {
+					if (!ok) { thisRef.emitOnce("cp-error","*CloudPipe* - Error in single upload: " + resp); }
+					thisRef.abort(); /*Anyway, we will abort it, since this will abort the multipart upload ONLY,
 										 which we are not using in this case, AND This will fire jsss-end event, which will emit cp-end event*/
 				},true);
 			}else { /*force last chunk upload on multipart*/
-				CloudPipeObject.dyeSignal = true ;
-				CloudPipeObject._write(null,true);
+				this.dyeSignal = true ;
+				this._write(null,true);
 			}
-		}else { CloudPipeObject.JSss.finishUpload(); }
+		}else { this.JSss.finishUpload(); }
 	} return true;
 };
 
@@ -213,22 +207,20 @@ CloudPipe.prototype.finish = function finish() {
 **/
 CloudPipe.prototype._write = function _write(chunkData,forceUp) {
 	//Check if is uploading ?
-	if (CloudPipeObject.isUploading) { console.log("is uploading"); }
+	if (this.isUploading) { console.log("is uploading"); }
 	//Check if can write
-	else if (CloudPipeObject.dataContainer.length > CloudPipeObject.maxChunkSize) { console.log("data is too big"); }
+	else if (this.dataContainer.length > this.maxChunkSize) { console.log("data is too big"); }
 	//Check if should start uploading
-	else if ((forceUp || CloudPipeObject.dataInBuffer + chunkData.length > CloudPipeObject.maxChunkSize) && !CloudPipeObject.isUploading) { console.log("uploading");
-		CloudPipeObject.uploadTried = 0;
-		CloudPipeObject.isUploading = true ;
-		CloudPipeObject.uploadedChunks++; 
+	else if ((forceUp || this.dataInBuffer + chunkData.length > this.maxChunkSize) && !this.isUploading) { console.log("uploading");
+		this.uploadTried = 0;
+		this.isUploading = true ;
+		this.uploadedChunks++; 
 		//Start upload
-		CloudPipeObject.JSss.uploadChunk(CloudPipeObject.dataContainer.slice(0,CloudPipeObject.dataInBuffer),CloudPipeObject.uploadedChunks);
+		this.JSss.uploadChunk(this.dataContainer.slice(0,this.dataInBuffer),this.uploadedChunks);
 	} else {
-//		console.log("adding");
 		//Append
-		CloudPipeObject.dataContainer.write(chunkData,CloudPipeObject.dataInBuffer,undefined,'binary');
-		CloudPipeObject.dataInBuffer += chunkData.length;
-		console.log(CloudPipeObject.dataInBuffer);
+		this.dataContainer.write(chunkData,this.dataInBuffer,undefined,'binary');
+		this.dataInBuffer += chunkData.length;
 		return true;
 	} return false;
 };
@@ -241,7 +233,7 @@ CloudPipe.prototype._write = function _write(chunkData,forceUp) {
 **/
 CloudPipe.prototype.emitOnce = function emitOnce(event) {
 	//Emit
-	CloudPipeObject.emit.apply(CloudPipeObject,arguments);
+	this.emit.apply(this,arguments);
 	//remove listener
-	CloudPipeObject.removeAllListeners(event);
+	this.removeAllListeners(event);
 };
