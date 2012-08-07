@@ -91,7 +91,7 @@ inherits(CloudPipe, EventEmitter);
 * Return URL which this upload file should be available whem finished
 **/
 CloudPipe.prototype.publicURL = function publicURL() {
-	return encodeURI('https://' + (this.options.endPoint ? this.options.endPoint : 's3.amazonaws.com') + '/' + this.bucketID + '/' + this.fileName);
+	return encodeURI('https://' + (this.options && this.options.endPoint ? this.options.endPoint : 's3.amazonaws.com') + '/' + this.bucketID + '/' + this.fileName);
 	
 }
 
