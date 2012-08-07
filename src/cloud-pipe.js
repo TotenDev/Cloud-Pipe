@@ -88,6 +88,14 @@ function CloudPipe(_bucketID,_AWSAccessKeyID,_AWSSecretAccessKey,fileName,chunkS
 inherits(CloudPipe, EventEmitter);
 
 /**
+* Return URL which this upload file should be available whem finished
+**/
+CloudPipe.prototype.publicURL = function publicURL() {
+	return encodeURI('https://' + (this.options.endPoint ? this.options.endPoint : 's3.amazonaws.com') + '/' + this.bucketID + '/' + this.fileName);
+	
+}
+
+/**
 * Get ready CloudPipe function (is called when ready listener is attached) - so do not call this directly
 **/
 CloudPipe.prototype.getReady = function getReady() {
