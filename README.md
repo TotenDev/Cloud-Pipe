@@ -68,10 +68,11 @@ After it'll fire `cp-drained` event when can write again.
 
 Parameters:
 - chunkData - **Type:**String - **Description:**Chunk to be on buffer and after uploaded to S3. - **REQUIRED**
+- encoding - **Type:**String - **Description:**Encoding of data to write. Default:'utf8' - **OPTIONAL**
 
 Sample:
 
-    CloudPipe.write('OMG This is my chunk');
+    CloudPipe.write('OMG This is my chunk','utf8');
 ---
 #### Finish Upload
 This method will finish upload and upload what remains on `Buffer`. It can take a bit long for large files, since amazon will only answer the request when all parts are joined.
@@ -88,6 +89,13 @@ Sample:
 
     CloudPipe.abort();
 
+---
+#### Get URL
+Get URL from upload, BUT this will not be accessible if this file is not public.
+
+Sample:
+
+    console.log("My URL:",CloudPipe.publicURL());
 
 ## Events
 
