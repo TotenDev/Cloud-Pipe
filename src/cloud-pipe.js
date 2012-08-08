@@ -92,7 +92,6 @@ inherits(CloudPipe, EventEmitter);
 **/
 CloudPipe.prototype.publicURL = function publicURL() {
 	return encodeURI('https://' + (this.options && this.options.endPoint ? this.options.endPoint : 's3.amazonaws.com') + '/' + this.bucketID + '/' + this.fileName);
-	
 }
 
 /**
@@ -158,8 +157,9 @@ CloudPipe.prototype.getReady = function getReady() {
 * if cannot write chunk size, it'll fire `drained` event when can write again.
 *
 * @param string chunkData - Chunk to be added - REQUIRED
+* @param string encoding - Encoding of data to be write , DefaultValue:'utf8'- OPTIONAL
 **/
-CloudPipe.prototype.write = function write(chunkData) { return this._write(chunkData,false); };
+CloudPipe.prototype.write = function write(chunkData,encoding) { return this._write(chunkData,(encoding ? encoding : 'utf8'),false); };
 /**
 * Abort cloudPipe
 * It'll cancel uploads, and delete all uploaded chunks.
@@ -198,7 +198,7 @@ CloudPipe.prototype.finish = function finish() {
 			}else { /*force last chunk upload on multipart*/
 				debug("*CloudPipe* will upload last chunk.");
 				this.dyeSignal = true ;
-				this._write(null,true);
+				this._write(null,null,true);
 			}
 		}else { this.JSss.finishUpload(); }
 	} return true;
@@ -214,9 +214,10 @@ CloudPipe.prototype.finish = function finish() {
 * if cannot write chunk size will return false and fire `cp-drained` event when can write again.
 *
 * @param string chunkData - Chunk to be added - REQUIRED
+* @param string encoding - Encoding of data to be write - REQUIRED
 * @param boolean forceUp - try to force upload in lower sizes (can fail in some cases) - REQUIRED
 **/
-CloudPipe.prototype._write = function _write(chunkData,forceUp) {
+CloudPipe.prototype._write = function _write(chunkData,encoding,forceUp) {
 	//Check if is uploading ?
 	if (this.isUploading) { debug("*CloudPipe* cannot write, this instance of CloudPipe is alredy uploading a chunk."); }
 	//Check if can write
@@ -229,9 +230,11 @@ CloudPipe.prototype._write = function _write(chunkData,forceUp) {
 		//Start upload
 		this.JSss.uploadChunk(this.dataContainer.slice(0,this.dataInBuffer),this.uploadedChunks);
 	} else {
-		//Append
-		this.dataContainer.write(chunkData,this.dataInBuffer,undefined,'binary');
-		this.dataInBuffer += chunkData.length;
+		if (chunkData) {
+			//Append
+			this.dataContainer.write(chunkData,this.dataInBuffer,chunkData.length,encoding);
+			this.dataInBuffer += chunkData.length;
+		}
 		return true;
 	} return false;
 };

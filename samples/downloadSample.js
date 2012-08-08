@@ -25,7 +25,7 @@ cp.on("cp-ready",function () {
 		  res.setEncoding('binary');
 		  res.on('data', function (chunk) {
 			acumulator += chunk ;
-		      if (!cp.write(acumulator)) {
+		      if (!cp.write(acumulator,'binary')) {
 				//pause request
 				console.log("pausing");
 				res.pause(); 
