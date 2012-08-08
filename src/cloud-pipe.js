@@ -75,6 +75,7 @@ function CloudPipe(_bucketID,_AWSAccessKeyID,_AWSSecretAccessKey,fileName,chunkS
 	this.uploadedChunks = 0; //uploaded chunk count
 	this.uploadTried = 0; //failed uploads in same chunk
 	this.isUploading = false ; //is uploading flag
+	this.lastEncoding = 'utf8';//Last encoding used
 	//AddListener newListener 
 	var thisRef = this;
 	this.addListener("newListener",function (event,listFunction) {
@@ -194,11 +195,11 @@ CloudPipe.prototype.finish = function finish() {
 					if (!ok) { thisRef.emitOnce("cp-error","*CloudPipe* - Error in single upload: " + resp); }
 					thisRef.abort(); /*Anyway, we will abort it, since this will abort the multipart upload ONLY,
 										 which we are not using in this case, AND This will fire jsss-end event, which will emit cp-end event*/
-				},true);
+				},true,this.lastEncoding);
 			}else { /*force last chunk upload on multipart*/
 				debug("*CloudPipe* will upload last chunk.");
 				this.dyeSignal = true ;
-				this._write(null,null,true);
+				this._write(null,this.lastEncoding,true);
 			}
 		}else { this.JSss.finishUpload(); }
 	} return true;
@@ -218,6 +219,8 @@ CloudPipe.prototype.finish = function finish() {
 * @param boolean forceUp - try to force upload in lower sizes (can fail in some cases) - REQUIRED
 **/
 CloudPipe.prototype._write = function _write(chunkData,encoding,forceUp) {
+	//Check for encoding and store it
+	if (encoding && encoding.length > 0) { this.lastEncoding = encoding; }
 	//Check if is uploading ?
 	if (this.isUploading) { debug("*CloudPipe* cannot write, this instance of CloudPipe is alredy uploading a chunk."); }
 	//Check if can write
@@ -228,7 +231,7 @@ CloudPipe.prototype._write = function _write(chunkData,encoding,forceUp) {
 		this.isUploading = true ;
 		this.uploadedChunks++; 
 		//Start upload
-		this.JSss.uploadChunk(this.dataContainer.slice(0,this.dataInBuffer),this.uploadedChunks);
+		this.JSss.uploadChunk(this.dataContainer.slice(0,this.dataInBuffer),this.uploadedChunks,encoding);
 	} else {
 		if (chunkData) {
 			//Append
