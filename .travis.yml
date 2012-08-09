@@ -11,6 +11,7 @@ script:
   - "node samples/usageSample.js"
   - "node src/cloud-pipe.js"
 notifications:
+  email: dev@totendev.com
   irc:
     channels:
       - "irc.freenode.org#TotenDev"
