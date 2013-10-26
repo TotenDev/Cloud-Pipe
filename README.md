@@ -2,6 +2,8 @@
 
 Simple Buffer that automatically upload it data to S3.
 
+[![Code Climate](https://codeclimate.com/github/TotenDev/Cloud-Pipe.png)](https://codeclimate.com/github/TotenDev/Cloud-Pipe)
+
 ## About
 
 Cloud-Pipe is an easy way of handling huge datas in very low memory and ephemeral writeable filesystems.  
