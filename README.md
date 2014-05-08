@@ -2,6 +2,8 @@
 
 Simple Buffer that automatically upload it data to S3.
 
+[![NPM](https://nodei.co/npm/cloud-pipe.png?downloads=true&stars=true)](https://nodei.co/npm/cloud-pipe/)
+
 ## About
 
 Cloud-Pipe is an easy way of handling huge datas in very low memory and ephemeral writeable filesystems.  
