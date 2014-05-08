@@ -2,7 +2,7 @@
 
 Simple Buffer that automatically upload it data to S3.
 
-http://[![NPM](https://nodei.co/npm/cloud-pipe.png?compact=true)](https://nodei.co/npm/cloud-pipe/)
+[![NPM](https://nodei.co/npm/cloud-pipe.png?compact=true)](https://nodei.co/npm/cloud-pipe/)
 
 ## About
 
